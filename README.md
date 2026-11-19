@@ -1,3 +1,9 @@
+Forked from https://github.com/tsoding/randomart
+**Integrates several pull requests:**
+*[Ux Additions to GUI mode](https://github.com/tsoding/randomart/pull/17)
+*[New functions](https://github.com/tsoding/randomart/pull/18)
+*[Add cosine and pow. Examples folder](https://github.com/tsoding/randomart/pull/19)
+
 # RandomArt
 
 RandomArt idea implementation from http://users.ece.cmu.edu/~adrian/projects/validation/validation.pdf
