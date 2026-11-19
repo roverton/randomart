@@ -885,7 +885,7 @@ bool compile_node_into_fragment_expression(String_Builder *sb, Node *expr, size_
 }
 
 // TODO: typechecking during compilation
-bool compile_node_func_into_fragment_shader(String_Builder *sb, Node *f)
+bool compile_node_func_into_fragment_shader(String_Builder *sb, Node *f, int oscillate)
 {
     sb_append_cstr(sb, "#version 330\n");
     sb_append_cstr(sb, "in vec2 fragTexCoord;\n");
@@ -904,13 +904,15 @@ bool compile_node_func_into_fragment_shader(String_Builder *sb, Node *f)
     sb_append_cstr(sb, "{\n");
 
     // original pre cos/pow code
-    // sb_append_cstr(sb, "    float x = fragTexCoord.x*2.0 - x_offset;\n");
-    // sb_append_cstr(sb, "    float y = fragTexCoord.y*2.0 - y_offset;\n");
-    // sb_append_cstr(sb, "    float t = amp*sin(freq*time);\n");
-
-    sb_append_cstr(sb, "    float x = fragTexCoord.x*2.0 - 1.0;\n");
-    sb_append_cstr(sb, "    float y = fragTexCoord.y*2.0 - 1.0;\n");
-    sb_append_cstr(sb, "    float t = time;\n");
+    if(oscillate != 0) {
+        sb_append_cstr(sb, "    float x = fragTexCoord.x*2.0 - x_offset;\n");
+        sb_append_cstr(sb, "    float y = fragTexCoord.y*2.0 - y_offset;\n");
+        sb_append_cstr(sb, "    float t = amp*sin(freq*time);\n");
+    } else {
+        sb_append_cstr(sb, "    float x = fragTexCoord.x*2.0 - 1.0;\n");
+        sb_append_cstr(sb, "    float y = fragTexCoord.y*2.0 - 1.0;\n");
+        sb_append_cstr(sb, "    float t = time;\n");
+    }
 
     sb_append_cstr(sb, "    finalColor = map_color(");
     if (!compile_node_into_fragment_expression(sb, f, 0)) return false;
@@ -1132,11 +1134,12 @@ int main(int argc, char **argv)
 {
     const char *program_name = shift(argv, argc);
 
-    int depth = 30;
+    int depth = 50;
     int seed = time(0);
-    int width = 16*100;
-    int height = 9*100;
+    int width = 1920;
+    int height = 1080;
     int fps = 60;
+    int oscillate = 0;
 
     while (argc > 0) {
         const char *flag = argv[0];
@@ -1150,6 +1153,8 @@ int main(int argc, char **argv)
             if (!flag_int(&argc, &argv, &height)) return 1;
         } else if (strcmp(flag, "-fps") == 0) {
             if (!flag_int(&argc, &argv, &fps)) return 1;
+        } else if (strcmp(flag, "-oscillate") == 0) {
+            if (!flag_int(&argc, &argv, &oscillate)) return 1;
         } else {
             break;
         }
@@ -1230,6 +1235,7 @@ int main(int argc, char **argv)
         nob_log(INFO, "WIDTH: %d", width);
         nob_log(INFO, "HEIGHT: %d", height);
         nob_log(INFO, "FPS: %d", fps);
+        nob_log(INFO, "OSCILLATE: %d", oscillate);
 
         Node *f = gen_rule(grammar, entry, depth);
         if (!f) {
@@ -1238,7 +1244,7 @@ int main(int argc, char **argv)
         }
 
         String_Builder sb = {0};
-        if (!compile_node_func_into_fragment_shader(&sb, f)) return 1;
+        if (!compile_node_func_into_fragment_shader(&sb, f, oscillate)) return 1;
         sb_append_null(&sb);
 
         FFMPEG *ffmpeg = NULL;
@@ -1275,13 +1281,13 @@ int main(int argc, char **argv)
 
         printf("==============================================================================================\n"
                "\tUse <↑←↓→>   key to MOVE around\n"
-               "\tUse <WASD>   key to ZOOM around\n"
+               "\tUse <ESDF>   key to ZOOM around\n"
                "\tUse <GH>     key to ZOOM uniformly\n"
                "\tUse <IK>     key to adjust AMPLITUDE (t variable)\n"
                "\tUse <JL>     key to adjust FREQUENCY (t variable)\n"
                "\tUse <O>      key to set everything to default\n"
                "\tUse <Space>  key to PAUSE\n"
-               "\tUse <QE>     key to adjust the TIME (only works in pause)\n"
+               "\tUse <WR>     key to adjust the TIME (only works in pause)\n"
                "\tUse <?=>     key to get INFORMATION\n"
                "\tUse <N>      key to start a new run\n"
                "==============================================================================================\n");
@@ -1305,17 +1311,17 @@ int main(int argc, char **argv)
                             (Vector2){0}, 0, WHITE);
                 EndShaderMode();
                 if (!pause) time += dt;
-                if ( pause && IsKeyPressed(KEY_Q)) {
+                if ( pause && IsKeyPressed(KEY_W)) {
                   time -= 0.5 * dt;
                 }
-                if (pause && IsKeyPressed(KEY_E)) {
+                if (pause && IsKeyPressed(KEY_R)) {
                   time += 0.5 * dt;
                 }
                 if (IsKeyPressed(KEY_N)) {
                   restart = true;
                   break;
                 }
-                if (IsKeyPressed(KEY_R)) {
+                if (IsKeyPressed(KEY_M)) {
                     ffmpeg = ffmpeg_start_rendering(width, height, fps);
                     time = 0;
                     SetTraceLogLevel(LOG_WARNING);
@@ -1349,9 +1355,9 @@ int main(int argc, char **argv)
 
                   printf(
                          "\tUse <↑←↓→>   key to MOVE around\n"
-                         "\tUse <WASD>   key to ZOOM around\n"
+                         "\tUse <ESDF>   key to ZOOM around\n"
                          "\tUse <GH>     key to ZOOM uniformly\n"
-                         "\tUse <IK>     key to adjust AMPLITUDE (t variable)\n"
+                         "\tUse <WR>     key to adjust AMPLITUDE (t variable)\n"
                          "\tUse <JL>     key to adjust FREQUENCY (t variable)\n"
                          "\tUse <O>      key to set everything to default\n"
                          "\tUse <Space>  key to PAUSE\n"
@@ -1379,17 +1385,17 @@ int main(int argc, char **argv)
                   x_coord -= 0.01;
                 }
 
-                if (IsKeyPressed(KEY_W)) {
+                if (IsKeyPressed(KEY_E)) {
                   y_zoom /= 1.2;
                 }
-                if (IsKeyPressed(KEY_S)) {
+                if (IsKeyPressed(KEY_D)) {
                   y_zoom *= 1.2;
                 }
 
-                if (IsKeyPressed(KEY_A)) {
+                if (IsKeyPressed(KEY_S)) {
                   x_zoom /= 1.2;
                 }
-                if (IsKeyPressed(KEY_D)) {
+                if (IsKeyPressed(KEY_F)) {
                   x_zoom *= 1.2;
                 }
 
